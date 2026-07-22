@@ -75,25 +75,74 @@ Emerge from [gentoo-zh overlay](https://github.com/microcai/gentoo-zh/tree/maste
 
 ### 额外补充
 
-如果阁下不喜欢电脑多装一个 Electron，可以自行提取发布版的 `app.asar` 并使用已安装 Electron 启动，建议的 Electron 版本是：`28.2.1`
+如果阁下不喜欢电脑多装一个 Electron，可以自行提取发布版的 `app.asar` 并使用已安装 Electron 启动，建议的 Electron 版本是：`43.1.1`（`VaapiOnNvidiaGPUs` 需要 Electron 43+ / Chromium 130+）
 
-## Flag参数配置
+## GPU 加速配置
 
-支持的参数列表：
-https://www.electronjs.org/docs/latest/api/command-line-switches
+Electron 43 (Chromium 150) 支持 Linux 下 VA-API 硬件视频解码。以下为推荐配置：
 
-1. 创建 `flags` 文件
+### NVIDIA GPU
 
-   在 `~/.config/bilibili` 目录下创建 `bilibili-flags.conf` 文件
+1. 安装 VA-API → NVDEC 后端：
+   ```bash
+   # Arch Linux
+   sudo pacman -S libva-nvidia-driver
+   # Debian/Ubuntu
+   sudo apt install libva-nvidia-driver
+   ```
 
-2. 填写配置
+2. 设置环境变量（libva 需要此变量定位 NVIDIA 后端）：
+   ```bash
+   export LIBVA_DRIVER_NAME=nvidia
+   ```
+
+3. 在 `~/.config/bilibili/bilibili-flags.conf` 中配置：
 
    ```
-   --disable-gpu
-   --key=value
+   --ignore-gpu-blocklist
+   --enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiOnNvidiaGPUs,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
+   --enable-gpu-rasterization
+   --enable-zero-copy
+   --disable-gpu-sandbox
    ```
+
+   > **说明**：
+   > - `VaapiOnNvidiaGPUs` (Chromium 130+) 绕过 vaapi_wrapper 对 NVIDIA 设备的跳过检查
+   > - `AcceleratedVideoDecodeLinuxGL` / `AcceleratedVideoDecodeLinuxZeroCopyGL` 为 Chromium 150 推荐的 GL 零拷贝解码路径
+   > - Electron 28 不支持以上 feature，NVIDIA 视频硬解需要 Electron 43+
+
+### Intel / AMD GPU
+
+```
+--ignore-gpu-blocklist
+--enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
+--enable-gpu-rasterization
+--enable-zero-copy
+--disable-gpu-sandbox
+```
+
+Intel 核显与 AMD 独显/核显使用 Mesa VA-API 后端，无需额外安装驱动或设置环境变量。
+
+### 验证硬解
+
+播放视频后检查 GPU 解码引擎是否工作：
+
+```bash
+cat /proc/$(pgrep -f "type=gpu-process.*bilibili")/fdinfo/* | grep drm-engine-video
+```
+
+非零数值表示 GPU 解码引擎正在工作。也可访问 `chrome://gpu` 查看 "Video Decode" 状态。
+
+### 注意
+
+- `--use-gl=angle --use-angle=gl` 在部分 Linux 桌面环境（尤其是 Wayland）下可能导致 VA-API 解码失效，建议使用 Electron 默认的 EGL/GLX 后端。
+- 如果系统开启了代理（如 Clash），`bilipc.bilibili.com` 经代理可能无法解析导致白屏。Electron 43+ 版本已内置代理绕过处理。
 
 ## 开发者工具
+
+### F12 开发者面板
+
+现已支持自行打开开发者工具，方法如下：
 
 现已支持自行打开开发者工具，方法如下：
 

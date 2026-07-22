@@ -78,25 +78,72 @@ Emerge from [gentoo-zh overlay](https://github.com/microcai/gentoo-zh/tree/maste
 
 ### Additional Notes
 
-If you don't want to install another Electron on your computer, you can extract `app.asar` from the release version and run it with your already installed Electron. The recommended Electron version is: `28.2.1`
+If you don't want to install another Electron on your computer, you can extract `app.asar` from the release version and run it with your already installed Electron. The recommended Electron version is: `43.1.1` (`VaapiOnNvidiaGPUs` requires Electron 43+ / Chromium 130+).
 
-## Flag Configuration
+## GPU Acceleration Configuration
 
-List of supported flags:
-https://www.electronjs.org/docs/latest/api/command-line-switches
+Electron 43 (Chromium 150) supports VA-API hardware video decoding on Linux. Below are the recommended configurations:
 
-1. Create a `flags` file
+### NVIDIA GPU
 
-   Create a `bilibili-flags.conf` file in the `~/.config/bilibili` directory.
+1. Install the VA-API → NVDEC backend:
+   ```bash
+   # Arch Linux
+   sudo pacman -S libva-nvidia-driver
+   # Debian/Ubuntu
+   sudo apt install libva-nvidia-driver
+   ```
 
-2. Fill in the configuration
+2. Set the environment variable (libva needs this to find the NVIDIA backend):
+   ```bash
+   export LIBVA_DRIVER_NAME=nvidia
+   ```
+
+3. Configure in `~/.config/bilibili/bilibili-flags.conf`:
 
    ```
-   --disable-gpu
-   --key=value
+   --ignore-gpu-blocklist
+   --enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiOnNvidiaGPUs,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
+   --enable-gpu-rasterization
+   --enable-zero-copy
+   --disable-gpu-sandbox
    ```
+
+   > **Notes**:
+   > - `VaapiOnNvidiaGPUs` (Chromium 130+) bypasses vaapi_wrapper's NVIDIA device skip check
+   > - `AcceleratedVideoDecodeLinuxGL` / `AcceleratedVideoDecodeLinuxZeroCopyGL` are the recommended GL zero-copy decode paths for Chromium 150
+   > - Electron 28 lacks these features — NVIDIA hardware video decode requires Electron 43+
+
+### Intel / AMD GPU
+
+```
+--ignore-gpu-blocklist
+--enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
+--enable-gpu-rasterization
+--enable-zero-copy
+--disable-gpu-sandbox
+```
+
+Intel iGPUs and AMD GPUs use the Mesa VA-API backend — no additional driver or environment variables needed.
+
+### Verifying Hardware Decode
+
+After playing a video, check if the GPU decode engine is active:
+
+```bash
+cat /proc/$(pgrep -f "type=gpu-process.*bilibili")/fdinfo/* | grep drm-engine-video
+```
+
+A non-zero value indicates the GPU decode engine is working. You can also visit `chrome://gpu` to check the "Video Decode" status.
+
+### Note
+
+- `--use-gl=angle --use-angle=gl` may break VA-API decoding on some Linux desktop environments (especially Wayland). The default EGL/GLX backend is recommended.
+- If using a system proxy (e.g. Clash), `bilipc.bilibili.com` may fail to resolve through the proxy, causing a blank white screen. Electron 43+ includes built-in proxy bypass handling.
 
 ## Developer Tools
+
+### F12 Developer Panel
 
 You can now open the developer tools yourself:
 
