@@ -33,6 +33,11 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
+      - name: Cache bilibili Windows installer
+        uses: actions/cache@v4
+        with:
+          path: cache/
+          key: bili-cache-${{ hashFiles('tools/update-bilibili.sh') }}
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
@@ -114,6 +119,13 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
+      - name: Cache electron binary (zip + extracted)
+        uses: actions/cache@v4
+        with:
+          path: |
+            cache/electron-v*.zip
+            electron/
+          key: electron-${{ matrix.ARCH }}-${{ hashFiles('tools/update-electron.sh') }}
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -186,6 +198,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - name: Cache pnpm store + electron-builder
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/.cache/electron-builder
+            node_modules/
+          key: pnpm-builder-${{ hashFiles('pnpm-lock.yaml') }}-${{ matrix.ARCH }}
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -324,6 +344,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - name: Cache electron binary (zip + extracted)
+        uses: actions/cache@v4
+        with:
+          path: |
+            cache/electron-v*.zip
+            electron/
+          key: electron-deepin-${{ matrix.ARCH }}-${{ hashFiles('tools/update-electron.sh') }}
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
