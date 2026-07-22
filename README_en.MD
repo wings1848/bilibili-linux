@@ -78,7 +78,7 @@ Emerge from [gentoo-zh overlay](https://github.com/microcai/gentoo-zh/tree/maste
 
 ### Additional Notes
 
-If you don't want to install another Electron on your computer, you can extract `app.asar` from the release version and run it with your already installed Electron. The recommended Electron version is: `28.2.1`
+If you don't want to install another Electron on your computer, you can extract `app.asar` from the release version and run it with your already installed Electron. The recommended Electron version is: `43.1.1` (this fork; Electron 28 does not support NVIDIA VA-API hardware decode)
 
 ## GPU Acceleration Configuration
 
