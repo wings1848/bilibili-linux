@@ -517,7 +517,6 @@ jobs:
     needs:
       - build-linux-simple
       - build-linux-package
-      - build-win
       - build-deepin
     runs-on: ubuntu-latest
     steps:
