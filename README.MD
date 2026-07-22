@@ -77,23 +77,57 @@ Emerge from [gentoo-zh overlay](https://github.com/microcai/gentoo-zh/tree/maste
 
 如果阁下不喜欢电脑多装一个 Electron，可以自行提取发布版的 `app.asar` 并使用已安装 Electron 启动，建议的 Electron 版本是：`28.2.1`
 
-## Flag参数配置
+## GPU 加速配置
 
-支持的参数列表：
-https://www.electronjs.org/docs/latest/api/command-line-switches
+### NVIDIA GPU (Wayland + Electron 43+)
 
-1. 创建 `flags` 文件
+如果你的系统使用 **NVIDIA GPU + Wayland**，且已升级至 **Electron 43（Chromium 150）**或更高版本（如本 fork），配置以下 flags 可实现 **GPU 渲染加速 + NVDEC 硬件视频解码**：
 
-   在 `~/.config/bilibili` 目录下创建 `bilibili-flags.conf` 文件
+1. 安装 VA-API → NVDEC 后端：
+   ```bash
+   # Arch Linux
+   sudo pacman -S libva-nvidia-driver
+   ```
 
-2. 填写配置
+2. 在 `~/.config/bilibili/bilibili-flags.conf` 中配置：
 
    ```
-   --disable-gpu
-   --key=value
+   --ignore-gpu-blocklist
+   --use-gl=angle
+   --use-angle=gl
+   --enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiOnNvidiaGPUs,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
+   --enable-gpu-rasterization
+   --enable-zero-copy
+   --disable-gpu-sandbox
    ```
+
+   > **关键说明**：
+   > - `VaapiOnNvidiaGPUs` **必需**，Chromium 130+ 新增，绕过 vaapi_wrapper 对 NVIDIA 设备的跳过检查
+   > - `AcceleratedVideoDecodeLinuxGL` 取代了旧版 `VaapiVideoDecoder`（Chromium 120- 的旧名）
+   > - Electron 28（AUR 版 bilibili-bin）**不支持**以上新 feature，NVIDIA 上视频硬解无法启用
+
+3. 在播放器设置中开启「优先使用 HEVC/H.265 编码视频播放」（GTX 1660 Ti 及更早 GPU 不支持 AV1 硬解）
+
+### Intel/AMD GPU
+
+Intel 核显和 AMD 独显/核显默认 VA-API 支持较好：
+
+```
+--ignore-gpu-blocklist
+--enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks
+--enable-gpu-rasterization
+--enable-zero-copy
+```
+
+### 注意
+
+- 如果系统开启了系统代理（如 Clash），本地调试域名 `bilipc.bilibili.com`（host-rules 映射到 localhost）经代理无法解析，会导致页面白屏（`ERR_CONNECTION_CLOSED`）。本 fork 已内置修复，会自动放行 `bilipc` 和 `localhost` 绕过代理。
 
 ## 开发者工具
+
+### F12 开发者面板
+
+现已支持自行打开开发者工具，方法如下：
 
 现已支持自行打开开发者工具，方法如下：
 

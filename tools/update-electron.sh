@@ -14,8 +14,11 @@ notice() {
   echo -e "\033[36m $1 \033[0m "
 }
 
-# 大于28.2.1有问题：https://github.com/msojocs/bilibili-linux/issues/170, https://github.com/electron/electron/issues/42519
-electron_version="28.2.1"
+# electron 43.1.1 (Chromium 150) for NVIDIA/Wayland GPU accel (rendering + VA-API video decode).
+# #42519 (screen.getCursorScreenPoint Linux regression, still OPEN) is bypassed by cursor-tool
+# (electron-tool.ts electronOverwriteAfterReady) on Wayland, so upgrading is safe for Wayland users.
+# https://github.com/msojocs/bilibili-linux/issues/170, https://github.com/electron/electron/issues/42519
+electron_version="43.1.1"
 if [ "$BUILD_ARCH" == "" ];then
   BUILD_ARCH="x64"
 elif [ "$BUILD_ARCH" == "amd64" ];then

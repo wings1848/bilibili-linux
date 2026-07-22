@@ -80,23 +80,55 @@ Emerge from [gentoo-zh overlay](https://github.com/microcai/gentoo-zh/tree/maste
 
 If you don't want to install another Electron on your computer, you can extract `app.asar` from the release version and run it with your already installed Electron. The recommended Electron version is: `28.2.1`
 
-## Flag Configuration
+## GPU Acceleration Configuration
 
-List of supported flags:
-https://www.electronjs.org/docs/latest/api/command-line-switches
+### NVIDIA GPU (Wayland + Electron 43+)
 
-1. Create a `flags` file
+For **NVIDIA GPU + Wayland** with **Electron 43 (Chromium 150)** or later (as in this fork), the following flags enable **GPU rendering + NVDEC hardware video decoding**:
 
-   Create a `bilibili-flags.conf` file in the `~/.config/bilibili` directory.
+1. Install VA-API → NVDEC backend:
+   ```bash
+   # Arch Linux
+   sudo pacman -S libva-nvidia-driver
+   ```
 
-2. Fill in the configuration
+2. Configure in `~/.config/bilibili/bilibili-flags.conf`:
 
    ```
-   --disable-gpu
-   --key=value
+   --ignore-gpu-blocklist
+   --use-gl=angle
+   --use-angle=gl
+   --enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiOnNvidiaGPUs,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
+   --enable-gpu-rasterization
+   --enable-zero-copy
+   --disable-gpu-sandbox
    ```
+
+   > **Key notes**:
+   > - `VaapiOnNvidiaGPUs` is **required** – Chromium 130+ only, bypasses vaapi_wrapper's NVIDIA device skip
+   > - `AcceleratedVideoDecodeLinuxGL` replaces the old `VaapiVideoDecoder` (Chromium 120- name)
+   > - Electron 28 (AUR bilibili-bin) **lacks** these new features – hardware video decode on NVIDIA cannot work
+
+3. Enable "Prefer HEVC/H.265" in player settings (GTX 1660 Ti and older GPUs lack AV1 hardware decode)
+
+### Intel/AMD GPU
+
+Intel iGPUs and AMD GPUs have good VA-API support by default:
+
+```
+--ignore-gpu-blocklist
+--enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks
+--enable-gpu-rasterization
+--enable-zero-copy
+```
+
+### Note
+
+- If you have a system proxy enabled (e.g. Clash), the local debug domain `bilipc.bilibili.com` (host-rules mapped to localhost) cannot be resolved through the proxy and will cause a blank white screen (`ERR_CONNECTION_CLOSED`). This fork includes a built-in fix that automatically bypasses the proxy for `bilipc` and `localhost`.
 
 ## Developer Tools
+
+### F12 Developer Panel
 
 You can now open the developer tools yourself:
 

@@ -1,0 +1,72 @@
+# Maintainer: Your Name <your@email>
+# Contributor: msojocs <jiyecafe@gmail.com>
+#
+# NVIDIA GPU acceleration fork — Electron 43 (Chromium 150) + VaapiOnNvidiaGPUs
+# for NVDEC hardware video decode on NVIDIA GPUs under Wayland.
+# Original upstream: https://github.com/msojocs/bilibili-linux
+# Fork: https://github.com/wings1848/bilibili-linux
+
+pkgname=bilibili-linux-gpu
+_pkgreal=bilibili
+pkgver=1.17.9
+pkgrel=1
+pkgdesc="Bilibili client for Linux (Electron 43, NVIDIA GPU acceleration fork)"
+arch=('x86_64')
+url="https://github.com/wings1848/bilibili-linux"
+license=('MIT')
+depends=(
+  'gtk3'
+  'libnotify'
+  'libxss'
+  'nss'
+  'libva'
+  'libva-nvidia-driver'
+  'libxtst'
+  'xdg-utils'
+  'at-spi2-core'
+  'cups'
+  'dbus'
+  'libxkbcommon'
+  'mesa'
+  'alsa-lib'
+)
+optdepends=(
+  'python-faster-whisper: AI subtitle transcription'
+)
+conflicts=('bilibili' 'bilibili-bin')
+provides=("${_pkgreal}=${pkgver}")
+source_x86_64=("${pkgname}-${pkgver}.AppImage::${url}/releases/download/v${pkgver}-${pkgrel}/${_pkgreal}-${pkgver}-${pkgrel}-x86_64.AppImage")
+sha256sums_x86_64=('SKIP')
+prepare() {
+  cd "${srcdir}"
+  chmod +x "${pkgname}-${pkgver}.AppImage"
+  # Extract AppImage to get app.asar + electron binary
+  "${pkgname}-${pkgver}.AppImage" --appimage-extract 2>/dev/null || true
+}
+package() {
+  if [ -d "${srcdir}/squashfs-root" ]; then
+    # Installed from AppImage extraction
+    install -d "${pkgdir}/opt/bilibili"
+    cp -r "${srcdir}/squashfs-root"/* "${pkgdir}/opt/bilibili/"
+    ln -sf "/opt/bilibili/AppRun" "${pkgdir}/usr/bin/bilibili"
+  else
+    # Fallback: download and install app.asar + electron from tarball release
+    install -d "${pkgdir}/opt/bilibili/app"
+    install -d "${pkgdir}/opt/bilibili/electron"
+    echo "Please download and extract bilibili-${pkgver}-${pkgrel}-x64.tar.gz from GitHub Releases"
+    echo "See: ${url}/releases/tag/v${pkgver}-${pkgrel}"
+  fi
+  # Install flags config for NVIDIA GPU acceleration
+  install -dm755 "${pkgdir}/etc/skel/.config/bilibili"
+  cat > "${pkgdir}/etc/skel/.config/bilibili/bilibili-flags.conf" << 'FLAGS'
+# bilibili GPU/VA-API flags - NVIDIA + Wayland
+# https://github.com/wings1848/bilibili-linux#gpu-acceleration-configuration
+--ignore-gpu-blocklist
+--use-gl=angle
+--use-angle=gl
+--enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiOnNvidiaGPUs,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
+--enable-gpu-rasterization
+--enable-zero-copy
+--disable-gpu-sandbox
+FLAGS
+}
