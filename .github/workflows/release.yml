@@ -265,7 +265,6 @@ jobs:
 
   build-win:
     name: Build Windows
-    continue-on-error: true
     needs:
       - build-app
     runs-on: ubuntu-latest
