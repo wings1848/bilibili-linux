@@ -265,6 +265,7 @@ jobs:
 
   build-win:
     name: Build Windows
+    continue-on-error: true
     needs:
       - build-app
     runs-on: ubuntu-latest
@@ -544,6 +545,7 @@ jobs:
     needs:
       - build-linux-simple
       - build-linux-package
+      - build-win
       - build-deepin
     runs-on: ubuntu-latest
     permissions:

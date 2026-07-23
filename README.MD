@@ -75,53 +75,68 @@ Emerge from [gentoo-zh overlay](https://github.com/microcai/gentoo-zh/tree/maste
 
 ### 额外补充
 
-如果阁下不喜欢电脑多装一个 Electron，可以自行提取发布版的 `app.asar` 并使用已安装 Electron 启动，建议的 Electron 版本是：`43.1.1`（本 fork 版本；旧版 Electron 28 不支持 NVIDIA VA-API 硬解）
+如果阁下不喜欢电脑多装一个 Electron，可以自行提取发布版的 `app.asar` 并使用已安装 Electron 启动，建议的 Electron 版本是：`43.1.1`（`VaapiOnNvidiaGPUs` 需要 Electron 43+ / Chromium 130+）
 
 ## GPU 加速配置
 
-### NVIDIA GPU (Wayland + Electron 43+)
+> **Arch Linux 用户**：推荐使用 AUR 包 [`bilibili-gpu-bin`](https://aur.archlinux.org/packages/bilibili-gpu-bin)，自动处理 GPU 检测和 flags 注入。
 
-如果你的系统使用 **NVIDIA GPU + Wayland**，且已升级至 **Electron 43（Chromium 150）**或更高版本（如本 fork），配置以下 flags 可实现 **GPU 渲染加速 + NVDEC 硬件视频解码**：
+Electron 43 (Chromium 150) 支持 Linux 下 VA-API 硬件视频解码。以下为推荐配置：
+
+### NVIDIA GPU
 
 1. 安装 VA-API → NVDEC 后端：
    ```bash
    # Arch Linux
    sudo pacman -S libva-nvidia-driver
+   # Debian/Ubuntu
+   sudo apt install libva-nvidia-driver
    ```
 
-2. 在 `~/.config/bilibili/bilibili-flags.conf` 中配置：
+2. 设置环境变量（libva 需要此变量定位 NVIDIA 后端）：
+   ```bash
+   export LIBVA_DRIVER_NAME=nvidia
+   ```
+
+3. 在 `~/.config/bilibili-linux/bilibili-flags.conf` 中配置：
 
    ```
    --ignore-gpu-blocklist
-   --use-gl=angle
-   --use-angle=gl
    --enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiOnNvidiaGPUs,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
    --enable-gpu-rasterization
    --enable-zero-copy
    --disable-gpu-sandbox
    ```
 
-   > **关键说明**：
-   > - `VaapiOnNvidiaGPUs` **必需**，Chromium 130+ 新增，绕过 vaapi_wrapper 对 NVIDIA 设备的跳过检查
-   > - `AcceleratedVideoDecodeLinuxGL` 取代了旧版 `VaapiVideoDecoder`（Chromium 120- 的旧名）
-   > - Electron 28（AUR 版 bilibili-bin）**不支持**以上新 feature，NVIDIA 上视频硬解无法启用
+   > **说明**：
+   > - `VaapiOnNvidiaGPUs` (Chromium 130+) 绕过 vaapi_wrapper 对 NVIDIA 设备的跳过检查，是 NVIDIA 硬解的必需 feature
+   > - `AcceleratedVideoDecodeLinuxGL` / `AcceleratedVideoDecodeLinuxZeroCopyGL` 为 Chromium 150 推荐的 GL 零拷贝解码路径
+   > - Electron 28 不支持以上 feature，NVIDIA 视频硬解需要 Electron 43+
 
-3. 在播放器设置中开启「优先使用 HEVC/H.265 编码视频播放」（GTX 1660 Ti 及更早 GPU 不支持 AV1 硬解）
-
-### Intel/AMD GPU
-
-Intel 核显和 AMD 独显/核显默认 VA-API 支持较好：
+### Intel / AMD GPU
 
 ```
 --ignore-gpu-blocklist
---enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks
+--enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
 --enable-gpu-rasterization
 --enable-zero-copy
+--disable-gpu-sandbox
 ```
+
+Intel 核显与 AMD 独显/核显使用 Mesa VA-API 后端，无需额外安装驱动或设置环境变量。
+
+### 验证硬解
+
+```bash
+cat /proc/$(pgrep -f "type=gpu-process.*bilibili")/fdinfo/* | grep drm-engine-video
+```
+
+非零数值表示 GPU 解码引擎正在工作。也可访问 `chrome://gpu` 查看 "Video Decode" 状态。
 
 ### 注意
 
-- 如果系统开启了系统代理（如 Clash），本地调试域名 `bilipc.bilibili.com`（host-rules 映射到 localhost）经代理无法解析，会导致页面白屏（`ERR_CONNECTION_CLOSED`）。本 fork 已内置修复，会自动放行 `bilipc` 和 `localhost` 绕过代理。
+- `--use-gl=angle --use-angle=gl` 在部分 Linux 桌面环境（尤其是 Wayland）下可能导致 VA-API 解码失效，建议使用 Electron 默认的 EGL/GLX 后端。
+- 如果系统开启了代理（如 Clash），Electron 43+ 版本已内置代理绕过处理（放行 `bilipc` 和 `localhost`）。
 
 ## 开发者工具
 

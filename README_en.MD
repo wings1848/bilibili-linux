@@ -78,53 +78,68 @@ Emerge from [gentoo-zh overlay](https://github.com/microcai/gentoo-zh/tree/maste
 
 ### Additional Notes
 
-If you don't want to install another Electron on your computer, you can extract `app.asar` from the release version and run it with your already installed Electron. The recommended Electron version is: `43.1.1` (this fork; Electron 28 does not support NVIDIA VA-API hardware decode)
+If you don't want to install another Electron on your computer, you can extract `app.asar` from the release version and run it with your already installed Electron. The recommended Electron version is: `43.1.1` (`VaapiOnNvidiaGPUs` requires Electron 43+ / Chromium 130+)
 
 ## GPU Acceleration Configuration
 
-### NVIDIA GPU (Wayland + Electron 43+)
+> **Arch Linux users**: Use AUR package [`bilibili-gpu-bin`](https://aur.archlinux.org/packages/bilibili-gpu-bin) for automatic GPU detection and flag injection.
 
-For **NVIDIA GPU + Wayland** with **Electron 43 (Chromium 150)** or later (as in this fork), the following flags enable **GPU rendering + NVDEC hardware video decoding**:
+Electron 43 (Chromium 150) supports VA-API hardware video decoding on Linux. Below are the recommended configurations:
 
-1. Install VA-API → NVDEC backend:
+### NVIDIA GPU
+
+1. Install the VA-API → NVDEC backend:
    ```bash
    # Arch Linux
    sudo pacman -S libva-nvidia-driver
+   # Debian/Ubuntu
+   sudo apt install libva-nvidia-driver
    ```
 
-2. Configure in `~/.config/bilibili/bilibili-flags.conf`:
+2. Set the environment variable (libva needs this to find the NVIDIA backend):
+   ```bash
+   export LIBVA_DRIVER_NAME=nvidia
+   ```
+
+3. Configure in `~/.config/bilibili-linux/bilibili-flags.conf`:
 
    ```
    --ignore-gpu-blocklist
-   --use-gl=angle
-   --use-angle=gl
    --enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiOnNvidiaGPUs,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
    --enable-gpu-rasterization
    --enable-zero-copy
    --disable-gpu-sandbox
    ```
 
-   > **Key notes**:
-   > - `VaapiOnNvidiaGPUs` is **required** – Chromium 130+ only, bypasses vaapi_wrapper's NVIDIA device skip
-   > - `AcceleratedVideoDecodeLinuxGL` replaces the old `VaapiVideoDecoder` (Chromium 120- name)
-   > - Electron 28 (AUR bilibili-bin) **lacks** these new features – hardware video decode on NVIDIA cannot work
+   > **Notes**:
+   > - `VaapiOnNvidiaGPUs` (Chromium 130+) bypasses vaapi_wrapper's NVIDIA device skip check — required for NVIDIA hardware decode
+   > - `AcceleratedVideoDecodeLinuxGL` / `AcceleratedVideoDecodeLinuxZeroCopyGL` are the recommended GL zero-copy decode paths for Chromium 150
+   > - Electron 28 lacks these features — NVIDIA hardware video decode requires Electron 43+
 
-3. Enable "Prefer HEVC/H.265" in player settings (GTX 1660 Ti and older GPUs lack AV1 hardware decode)
-
-### Intel/AMD GPU
-
-Intel iGPUs and AMD GPUs have good VA-API support by default:
+### Intel / AMD GPU
 
 ```
 --ignore-gpu-blocklist
---enable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks
+--enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiVideoDecoder,VaapiIgnoreDriverChecks,PlatformHEVCDecoderSupport
 --enable-gpu-rasterization
 --enable-zero-copy
+--disable-gpu-sandbox
 ```
+
+Intel iGPUs and AMD GPUs use the Mesa VA-API backend — no additional driver or environment variables needed.
+
+### Verifying Hardware Decode
+
+```bash
+cat /proc/$(pgrep -f "type=gpu-process.*bilibili")/fdinfo/* | grep drm-engine-video
+```
+
+A non-zero value indicates the GPU decode engine is working. You can also visit `chrome://gpu` to check the "Video Decode" status.
 
 ### Note
 
-- If you have a system proxy enabled (e.g. Clash), the local debug domain `bilipc.bilibili.com` (host-rules mapped to localhost) cannot be resolved through the proxy and will cause a blank white screen (`ERR_CONNECTION_CLOSED`). This fork includes a built-in fix that automatically bypasses the proxy for `bilipc` and `localhost`.
+- `--use-gl=angle --use-angle=gl` may break VA-API decoding on some desktop environments (especially Wayland). The default EGL/GLX backend is recommended.
+- If using a system proxy (e.g. Clash), Electron 43+ includes built-in proxy bypass handling for `bilipc` and `localhost`.
 
 ## Developer Tools
 
